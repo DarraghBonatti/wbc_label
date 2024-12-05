@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Labeling</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { margin-top: 20px; }
+        .instructions {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        .image-name {
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .label-buttons button { margin: 5px; }
+        .csv-table {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .csv-table table {
+            font-size: 14px;
+        }
+        .navigation-buttons button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Top Row: Instructions -->
+        <div class="row">
+            <div class="col-12">
+                <h3>Instructions</h3>
+                <div class="instructions">
+                    <ul>
+                        <li>This application allows you to examine and label white blood cell images.</li>
+                        <li>Important notes about the images:
+                            <ul>
+                                <li>The target white blood cell for labeling is typically centered in the image.</li>
+                                <li>Some images may contain multiple white blood cells.</li>
+                                <li>Occasionally, white blood cells may appear near the image border and won't be perfectly centered.</li>
+                            </ul>
+                        </li>
+                        <li>Session and Progress:
+                            <ul>
+                                <li>Your progress is automatically saved in session cookies.</li>
+                                <li>Sessions remain active for 7 days before expiring.</li>
+                                <li>You can take breaks and return to continue where you left off.</li>
+                            </ul>
+                        </li>
+                        <li>Saving Your Work:
+                            <ul>
+                                <li>All labels are stored in a CSV file.</li>
+                                <li>Please download the CSV file regularly to back up your progress.</li>
+                                <li>It's recommended to download the CSV file before taking extended breaks.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Row: Image Labeling and CSV Table -->
+        <div class="row mt-4">
+            <!-- Image Labeling Section -->
+            <div class="col-md-8 text-center">
+                <div class="image-container">
+                    <h1>Label the White Blood Cell</h1>
+                    <div class="image-name">{{ image_name }}</div>
+                    <img id="image" src="{{ image_path }}" alt="White Blood Cell">
+                </div>
+                <div class="label-buttons text-center mt-3">
+                    <button class="btn btn-secondary" onclick="labelImage('Neutrophil')">Neutrophil</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Lymphocyte')">Lymphocyte</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Monocyte')">Monocyte</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Eosinophil')">Eosinophil</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Basophil')">Basophil</button>
+                    <button class="btn btn-secondary" onclick="labelImage('NRBC')">NRBC</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Other WBC')">Other WBC</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Undeterminable')">Undeterminable</button>
+                    <button class="btn btn-secondary" onclick="labelImage('Non White Blood Cell')">Non White Blood Cell</button>
+                </div>
+                <div class="navigation-buttons text-center mt-3">
+                    <button class="btn btn-info" onclick="navigate('prev')">Previous</button>
+                    <button class="btn btn-info" onclick="navigate('next')">Next</button>
+                </div>
+                <p class="text-center mt-2">Image {{ index + 1 }} of {{ total }}</p>
+            </div>
+
+            <!-- CSV Table Section -->
+            <div class="col-md-4">
+                <h3>Recent Labels</h3>
+                <div class="csv-table">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Image Name</th>
+                                <th>Label</th>
+                            </tr>
+                        </thead>
+                        <tbody id="labelsTableBody">
+                            <!-- Latest 5 labels will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <a href="/download_labels" class="btn btn-primary mt-3">Download Labels CSV</a>
+                <div class="text-center mt-3">
+                    <a href="/logout" class="btn btn-danger">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap and jQuery JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        function labelImage(label) {
+            fetch('/label', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label: label })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateLabelsTable();
+                    location.reload();
+                }
+            });
+        }
+
+        function navigate(direction) {
+            fetch('/navigate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direction: direction })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateLabelsTable();
+                    location.reload();
+                }
+            });
+        }
+
+        function updateLabelsTable() {
+            fetch('/get_labels')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('labelsTableBody');
+                tbody.innerHTML = ''; // Clear existing rows
+                const latestEntries = data.slice(-5).reverse(); // Get the latest 5 entries
+                latestEntries.forEach(row => {
+                    const tr = document.createElement('tr');
+                    const tdImageName = document.createElement('td');
+                    tdImageName.textContent = row.image_name;
+                    const tdLabel = document.createElement('td');
+                    tdLabel.textContent = row.label;
+                    tr.appendChild(tdImageName);
+                    tr.appendChild(tdLabel);
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        // Initial load of the labels table
+        updateLabelsTable();
+    </script>
+</body>
+</html>
